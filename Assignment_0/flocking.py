@@ -11,7 +11,7 @@ class FlockingConfig(Config):
     separation_weight: float = 1
 
 
-class FlockingAgent(Agent[FlockingConfig]):
+class FlockingAgent(Agent):
     def change_position(self):
         neighbors = self.in_proximity_accuracy()
         neighbors = [agent for agent, _ in neighbors]
