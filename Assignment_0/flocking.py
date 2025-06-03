@@ -64,6 +64,6 @@ class FlockingAgent(Agent):
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
         FlockingConfig(image_rotation=True, movement_speed=1, radius=50)
     )
-    .batch_spawn_agents(100, FlockingAgent, images=["images/triangle.png"])
+    .batch_spawn_agents(100, FlockingAgent, images=["Assignment_0/images/triangle.png"])
     .run()
 )
