@@ -23,13 +23,9 @@ class FlockingConfig(Config):
         )
 
 
-class FlockingAgent(Agent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Give each boid an initial random direction
-        angle = random.uniform(0, 360)
-        self.move = Vector2(1, 0).rotate(angle)
-
+class FlockingAgent(Agent[FlockingConfig]):
+    # By overriding `change_position`, the default behaviour is overwritten.
+    # Without making changes, the agents won't move.
     def change_position(self):
         neighbors = self.in_proximity_accuracy()
         neighbors = [agent for agent, _ in neighbors]
@@ -100,6 +96,6 @@ class FlockingAgent(Agent):
             fps_limit=0
         )
     )
-    .batch_spawn_agents(100, FlockingAgent, images=["images/triangle.png"])
+    .batch_spawn_agents(100, FlockingAgent, images=["Assignment_0/images/triangle.png"])
     .run()
 )
