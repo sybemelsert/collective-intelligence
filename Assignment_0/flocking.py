@@ -23,7 +23,7 @@ class FlockingConfig(Config):
         )
 
 
-class FlockingAgent(Agent[FlockingConfig]):
+class FlockingAgent(Agent):
     # By overriding `change_position`, the default behaviour is overwritten.
     # Without making changes, the agents won't move.
     def change_position(self):
@@ -91,8 +91,8 @@ class FlockingAgent(Agent[FlockingConfig]):
     Simulation(
         FlockingConfig(
             image_rotation=True,
-            movement_speed=1.0,
-            radius=50,
+            movement_speed=2.0,
+            radius=80,
             fps_limit=0
         )
     )
