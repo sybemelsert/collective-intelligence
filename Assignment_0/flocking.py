@@ -11,7 +11,7 @@ class FlockingConfig(Config):
     separation_weight: float = 1
 
 
-class FlockingAgent(Agent[FlockingConfig]):
+class FlockingAgent(Agent):
     # By overriding `change_position`, the default behaviour is overwritten.
     # Without making changes, the agents won't move.
     def change_position(self):
@@ -25,6 +25,6 @@ class FlockingAgent(Agent[FlockingConfig]):
         # TODO: Modify `movement_speed` and `radius` and observe the change in behaviour.
         FlockingConfig(image_rotation=True, movement_speed=1, radius=50)
     )
-    .batch_spawn_agents(100, FlockingAgent, images=["images/triangle.png"])
+    .batch_spawn_agents(100, FlockingAgent, images=["Assignment_0/images/triangle.png"])
     .run()
 )
