@@ -1,9 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from vi import Agent, Config, Simulation
 from pygame.math import Vector2
 from vi.config import deserialize
 import random
-
+import pygame
 
 @deserialize
 @dataclass
@@ -11,12 +11,9 @@ class FlockingConfig(Config):
     alignment_weight: float = 0.5
     cohesion_weight: float = 0.5
     separation_weight: float = 0.5
-    delta_time: float = 1 # reduced for smoother motion
+    delta_time: float = 1
     mass: int = 20
     max_velocity: float = 2.0
-
-    # New field for obstacle positions
-    obstacles: list[Vector2] = field(default_factory=lambda: [Vector2(500, 500)])
 
     def weights(self) -> tuple[float, float, float]:
         return (
@@ -26,14 +23,22 @@ class FlockingConfig(Config):
         )
 
 
+# Obstacle definition (not visible by itself)
+class Obstacle:
+    def __init__(self, pos: Vector2, image_path: str, radius: float):
+        self.pos = pos
+        self.radius = radius
+        self.image_path = image_path
+
+
+# Main agent with flocking + obstacle avoidance
 class FlockingAgent(Agent):
-    # By overriding `change_position`, the default behaviour is overwritten.
-    # Without making changes, the agents won't move.
+    obstacle = None  # Shared by all agents
+
     def change_position(self):
         neighbors = self.in_proximity_accuracy()
         neighbors = [agent for agent, _ in neighbors]
 
-        # If no neighbors, give a small nudge to avoid freezing
         if not neighbors:
             if self.move.length() < 0.01:
                 angle = random.uniform(0, 360)
@@ -41,6 +46,29 @@ class FlockingAgent(Agent):
             self.pos += self.move * self.config.delta_time
             self._wrap_position()
             return
+
+        # Obstacle avoidance
+        # Obstacle collision handling (hard boundary)
+        obstacle = FlockingAgent.obstacle
+        if obstacle:
+            offset = self.pos - obstacle.pos
+            distance = offset.length()
+            avoid_distance = obstacle.radius + self.config.radius
+
+            if distance < avoid_distance:
+                if distance == 0:
+                    offset = Vector2(random.uniform(-1, 1), random.uniform(-1, 1))
+                    distance = offset.length()
+
+                # Normalize the bounce direction
+                normal = offset.normalize()
+
+                # Reflect velocity off the obstacle
+                self.move = self.move.reflect(normal)
+
+                # Move agent just outside the obstacle radius
+                self.pos = obstacle.pos + normal * avoid_distance
+
 
         v_boid = self.move
         x_boid = self.pos
@@ -56,14 +84,6 @@ class FlockingAgent(Agent):
         x_avg = sum((agent.pos for agent in neighbors), Vector2()) / len(neighbors)
         cohesion = (x_avg - x_boid) - v_boid
 
-        # Obstacle avoidance force
-        repulsion = Vector2()
-        for obstacle in self.config.obstacles:
-            direction = self.pos - obstacle
-            distance = direction.length()
-            if distance < 100:  # obstacle influence radius
-                repulsion += direction.normalize() * (1 / max(distance, 1)) * 100  # stronger when closer
-
         # Force calculation
         α = self.config.alignment_weight
         β = self.config.separation_weight
@@ -72,42 +92,62 @@ class FlockingAgent(Agent):
         delta_time = self.config.delta_time
         max_speed = self.config.max_velocity
 
-        f_total = (α * alignment + β * separation + γ * cohesion + repulsion) / mass
+        f_total = (α * alignment + β * separation + γ * cohesion) / mass
         self.move += f_total
 
-        # Get speed after force update
+        # Clamp velocity
         speed = self.move.length()
-        min_speed = 0.5 # <-- enforce this as the minimum movement threshold
-        max_speed = self.config.max_velocity
-
-        # Reassign velocity with proper normalization and limits
+        min_speed = 0.5
         if speed < min_speed:
             self.move = self.move.normalize() * min_speed
         elif speed > max_speed:
             self.move = self.move.normalize() * max_speed
 
-        # Update position
         self.pos += self.move * delta_time
         self._wrap_position()
 
     def _wrap_position(self):
-         # Keep agents inside the window (wraparound)
         width, height = 1000, 1000
         self.pos.x %= width
         self.pos.y %= height
 
 
-# Run the simulation with an obstacle
-(
-    Simulation(
-        FlockingConfig(
-            image_rotation=True,
-            movement_speed=2.0,
-            radius=80,
-            fps_limit=0,
-            obstacles=[Vector2(500, 500)]  # You can add more Vector2(x, y) here
-        )
+# Obstacle agent (visible but doesn't move)
+class ObstacleAgent(Agent):
+    def initialise_agent(self):
+         self.pos = FlockingAgent.obstacle.pos - Vector2(80, 71)
+
+    def change_position(self):
+        pass
+
+
+# Create the obstacle and assign it to agents
+obstacle = Obstacle(Vector2(500, 500), "Assignment_0/images/triangle@200px.png", radius=100)
+FlockingAgent.obstacle = obstacle
+
+
+# Start the simulation
+sim = Simulation(
+    FlockingConfig(
+        image_rotation=True,
+        movement_speed=2.0,
+        radius=80,
+        fps_limit=0,
     )
-    .batch_spawn_agents(100, FlockingAgent, images=["Assignment_0/images/triangle.png"])
-    .run()
 )
+
+# Spawn visible obstacle agent (1 only)
+# Add the visual obstacle
+sim.batch_spawn_agents(
+    1,
+    ObstacleAgent,
+    images=["Assignment_0/images/triangle@200px.png"]
+)
+
+# Add the flocking agents
+sim.batch_spawn_agents(
+    100,
+    FlockingAgent,
+    images=["Assignment_0/images/triangle.png"]  # or triangle@50px.png
+).run()
+
