@@ -80,8 +80,8 @@ class FlockingAgent(Agent):
     
 
     def _wrap_position(self):
-        # Keep agents inside the window (wraparound)
-        width, height =1000, 1000 
+         # Keep agents inside the window (wraparound)
+        width, height = 1000, 1000
         self.pos.x %= width
         self.pos.y %= height
 
