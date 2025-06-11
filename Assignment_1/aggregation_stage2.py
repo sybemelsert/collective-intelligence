@@ -29,7 +29,7 @@ class AggregationZone:
 # ------------------------------
 class AggregationAgent(Agent):
     WANDERING, JOIN, STILL, LEAVE = range(4)
-    zone = None
+    zones = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,21 +44,20 @@ class AggregationAgent(Agent):
     def update(self):
         # Draw aggregation zone (called every frame)
         screen = pygame.display.get_surface()
-        if AggregationAgent.zone:
-            pos = AggregationAgent.zone.pos
-            radius = AggregationAgent.zone.radius
+        for zone in AggregationAgent.zones:
+            pos = zone.pos
+            radius = zone.radius
             pygame.draw.circle(screen, (255, 255, 0), (int(pos.x), int(pos.y)), int(radius), width=2)
 
     def change_position(self):
-        zone = self.zone
         neighbors = self.in_proximity_accuracy()
+        in_zone = False
+        n = 0
 
-        if zone:
-            in_zone = (self.pos - zone.pos).length() < zone.radius
-            n = sum(1 for agent, _ in neighbors if (agent.pos - zone.pos).length() < zone.radius)
-        else:
-            n = sum(1 for _, dist in neighbors if dist < self.config.aggregation_zone_radius)
-            in_zone = n > 0
+        for zone in self.zones:
+            if (self.pos - zone.pos).length() < zone.radius:
+                in_zone = True
+                n += sum(1 for agent, _ in neighbors if (agent.pos - zone.pos).length() < zone.radius)
 
         # Probability formulas
         a, b = 1.70188, 3.88785
@@ -107,7 +106,10 @@ class AggregationAgent(Agent):
 # ------------------------------
 # RUN SIMULATION
 # ------------------------------
-AggregationAgent.zone = AggregationZone(Vector2(500, 500), 120)
+AggregationAgent.zones = [
+    AggregationZone(Vector2(225, 400), 100),
+    AggregationZone(Vector2(525, 400), 100) # We want to change this radius (second parameter) for testing
+]
 
 sim = Simulation(
     AggregationConfig(
