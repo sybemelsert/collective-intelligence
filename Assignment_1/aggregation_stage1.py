@@ -20,7 +20,7 @@ class AggregationConfig(Config):
 # AGGREGATION ZONE
 # ------------------------------
 class AggregationZone:
-    def _init_(self, pos: Vector2, radius: float):
+    def __init__(self, pos: Vector2, radius: float):
         self.pos = pos
         self.radius = radius
 
@@ -31,8 +31,8 @@ class AggregationAgent(Agent):
     WANDERING, JOIN, STILL, LEAVE = range(4)
     zone = None
 
-    def _init_(self, *args, **kwargs):
-        super()._init_(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.state = self.WANDERING
         self.state_timer = 0
 
@@ -42,7 +42,7 @@ class AggregationAgent(Agent):
         self.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.speed
 
     def update(self):
-        # Draw aggregation zone directly in agent update
+        # Draw aggregation zone (called every frame)
         screen = pygame.display.get_surface()
         if AggregationAgent.zone:
             pos = AggregationAgent.zone.pos
@@ -60,10 +60,12 @@ class AggregationAgent(Agent):
             n = sum(1 for _, dist in neighbors if dist < self.config.aggregation_zone_radius)
             in_zone = n > 0
 
+        # Probability formulas
         a, b = 1.70188, 3.88785
         PJoin = 0.03 + 0.48 * (1 - math.exp(-a * n)) if in_zone else 0
         PLeave = math.exp(-b * n) if in_zone else 1
 
+        # State transitions
         if self.state == self.WANDERING:
             if random.random() < 0.02:
                 angle = random.uniform(-45, 45)
@@ -120,4 +122,4 @@ sim.batch_spawn_agents(
     100,
     AggregationAgent,
     images=["images/triangle.png"]
-).run()  # No update_callback needed
+).run()
