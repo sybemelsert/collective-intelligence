@@ -5,28 +5,34 @@ import random
 import math
 import pygame
 
+# ------------------------------
+# CONFIGURATION
+# ------------------------------
 @dataclass
 class AggregationConfig(Config):
     speed: float = 0.5
     radius: float = 10.0
-    # Keep zone parameters in config since they're used in logic
     aggregation_zone_radius: float = 120.0
-    aggregation_zone_center: tuple = (500, 500)
     Tjoin: int = 30
     Tleave: int = 30
 
-class ZoneAgent(Agent):
-    def initialise_agent(self):
-        self.pos = Vector2(self.config.aggregation_zone_center)
-        
-    def change_position(self):
-        pass  # Zone agent never moves
+# ------------------------------
+# AGGREGATION ZONE
+# ------------------------------
+class AggregationZone:
+    def _init_(self, pos: Vector2, radius: float):
+        self.pos = pos
+        self.radius = radius
 
+# ------------------------------
+# AGENT DEFINITION
+# ------------------------------
 class AggregationAgent(Agent):
     WANDERING, JOIN, STILL, LEAVE = range(4)
+    zone = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def _init_(self, *args, **kwargs):
+        super()._init_(*args, **kwargs)
         self.state = self.WANDERING
         self.state_timer = 0
 
@@ -35,26 +41,36 @@ class AggregationAgent(Agent):
         self.state_timer = 0
         self.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.speed
 
-    def change_position(self):
-        # Use config values directly for the zone
-        zone_center = Vector2(self.config.aggregation_zone_center)
-        zone_radius = self.config.aggregation_zone_radius
-        in_zone = (self.pos - zone_center).length() < zone_radius
+    def update(self):
+        # Draw aggregation zone directly in agent update
+        screen = pygame.display.get_surface()
+        if AggregationAgent.zone:
+            pos = AggregationAgent.zone.pos
+            radius = AggregationAgent.zone.radius
+            pygame.draw.circle(screen, (255, 255, 0), (int(pos.x), int(pos.y)), int(radius), width=2)
 
+    def change_position(self):
+        zone = self.zone
         neighbors = self.in_proximity_accuracy()
-        n = sum(1 for agent, _ in neighbors if (agent.pos - zone_center).length() < zone_radius)
+
+        if zone:
+            in_zone = (self.pos - zone.pos).length() < zone.radius
+            n = sum(1 for agent, _ in neighbors if (agent.pos - zone.pos).length() < zone.radius)
+        else:
+            n = sum(1 for _, dist in neighbors if dist < self.config.aggregation_zone_radius)
+            in_zone = n > 0
 
         a, b = 1.70188, 3.88785
         PJoin = 0.03 + 0.48 * (1 - math.exp(-a * n)) if in_zone else 0
         PLeave = math.exp(-b * n) if in_zone else 1
 
-        speed = self.config.speed * (0.3 if in_zone else 1.0)
-        self.move = self.move.normalize() * speed if self.move.length() != 0 else Vector2(1, 0) * speed
-
         if self.state == self.WANDERING:
             if random.random() < 0.02:
                 angle = random.uniform(-45, 45)
-                self.move = self.move.rotate(angle).normalize() * speed
+                self.move = self.move.rotate(angle)
+                if self.move.length() == 0:
+                    self.move = Vector2(1, 0)
+                self.move = self.move.normalize() * self.config.speed
             if in_zone and random.random() < PJoin:
                 self.state, self.state_timer = self.JOIN, 0
             self.pos += self.move
@@ -63,7 +79,7 @@ class AggregationAgent(Agent):
             self.state_timer += 1
             if self.state_timer > self.config.Tjoin:
                 self.state, self.state_timer = self.STILL, 0
-            self.pos += self.move.normalize() * self.config.speed * 0.1
+            self.pos += self.move.normalize() * self.config.speed * 0.2
 
         elif self.state == self.STILL:
             self.move = Vector2(0, 0)
@@ -86,6 +102,11 @@ class AggregationAgent(Agent):
         self.pos.x %= 1000
         self.pos.y %= 1000
 
+# ------------------------------
+# RUN SIMULATION
+# ------------------------------
+AggregationAgent.zone = AggregationZone(Vector2(500, 500), 120)
+
 sim = Simulation(
     AggregationConfig(
         image_rotation=True,
@@ -95,15 +116,8 @@ sim = Simulation(
     )
 )
 
-# Spawn zone agent with a placeholder image but we'll draw our own circle
-sim.batch_spawn_agents(
-    1,
-    ZoneAgent,
-    images=["collective-intelligence/Assignment_1/images/circle.png"]  # Need an image for the framework, but our draw method will handle visualization
-)
-
 sim.batch_spawn_agents(
     100,
     AggregationAgent,
-    images=["collective-intelligence/Assignment_1/images/triangle.png"]
-).run()
+    images=["images/triangle.png"]
+).run()  # No update_callback needed
