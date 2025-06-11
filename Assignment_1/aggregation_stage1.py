@@ -99,11 +99,11 @@ sim = Simulation(
 sim.batch_spawn_agents(
     1,
     ZoneAgent,
-    images=["images/circle.png"]  # Need an image for the framework, but our draw method will handle visualization
+    images=["collective-intelligence/Assignment_1/images/circle.png"]  # Need an image for the framework, but our draw method will handle visualization
 )
 
 sim.batch_spawn_agents(
     100,
     AggregationAgent,
-    images=["images/triangle.png"]
+    images=["collective-intelligence/Assignment_1/images/triangle.png"]
 ).run()
