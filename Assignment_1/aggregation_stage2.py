@@ -106,10 +106,20 @@ class AggregationAgent(Agent):
 # ------------------------------
 # RUN SIMULATION
 # ------------------------------
-AggregationAgent.zones = [
+
+similar_radius = False # We can change this variable to determine whether we want to have different radiuses or not
+
+if similar_radius == True:
+    AggregationAgent.zones = [
     AggregationZone(Vector2(225, 400), 100),
-    AggregationZone(Vector2(525, 400), 100) # We want to change this radius (second parameter) for testing
-]
+    AggregationZone(Vector2(525, 400), 100)
+    ]
+
+else:
+    AggregationAgent.zones = [
+    AggregationZone(Vector2(225, 400), 140),
+    AggregationZone(Vector2(525, 400), 80)
+    ]
 
 sim = Simulation(
     AggregationConfig(
