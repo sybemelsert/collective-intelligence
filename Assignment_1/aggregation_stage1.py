@@ -9,46 +9,18 @@ import pygame
 class AggregationConfig(Config):
     speed: float = 0.5
     radius: float = 10.0
+    # Keep zone parameters in config since they're used in logic
     aggregation_zone_radius: float = 120.0
     aggregation_zone_center: tuple = (500, 500)
     Tjoin: int = 30
     Tleave: int = 30
-
-class AggregationZone:
-    def __init__(self, pos: Vector2, radius: float):
-        self.pos = pos
-        self.radius = radius
 
 class ZoneAgent(Agent):
     def initialise_agent(self):
         self.pos = Vector2(self.config.aggregation_zone_center)
         
     def change_position(self):
-        pass
-        
-    def draw(self, screen):
-        # Draw a more visible green circle for the aggregation zone
-        radius = int(self.config.aggregation_zone_radius)
-        
-        # Create a surface for the semi-transparent circle
-        surf = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
-        
-        # Draw a filled semi-transparent circle
-        pygame.draw.circle(
-            screen,
-            (0, 255, 0, 30),  # Very transparent green fill
-            (int(self.pos.x), int(self.pos.y)),
-            radius
-        )
-        
-        # Draw the border
-        pygame.draw.circle(
-            screen,
-            (0, 255, 0, 255),  # Solid green border
-            (int(self.pos.x), int(self.pos.y)),
-            radius,
-            width=2
-        )
+        pass  # Zone agent never moves
 
 class AggregationAgent(Agent):
     WANDERING, JOIN, STILL, LEAVE = range(4)
@@ -113,9 +85,6 @@ class AggregationAgent(Agent):
     def _wrap_position(self):
         self.pos.x %= 1000
         self.pos.y %= 1000
-
-zone = AggregationZone(Vector2(*AggregationConfig.aggregation_zone_center), AggregationConfig.aggregation_zone_radius)
-AggregationAgent.zone = zone
 
 sim = Simulation(
     AggregationConfig(
