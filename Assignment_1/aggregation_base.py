@@ -99,5 +99,5 @@ sim = Simulation(
 sim.batch_spawn_agents(
     100,
     AggregationAgent,
-    images=["images/triangle.png"]
+    images=["Assignment_1/images/triangle.png"]
 ).run()
