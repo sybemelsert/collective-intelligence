@@ -18,10 +18,11 @@ class AggregationConfig(Config):
     Tleave: int = 30
 
 # ------------------------------
-# GLOBAL TRACKING LISTS
+# TRACKING VARIABLES
 # ------------------------------
 agent_counts_inside = []
 agent_counts_outside = []
+zone_agent_counts = []
 
 # ------------------------------
 # AGGREGATION ZONE
@@ -107,19 +108,19 @@ class AggregationAgent(Agent):
         self.pos.y %= 1000
 
 # ------------------------------
-# CUSTOM SIMULATION CLASS
+# CUSTOM SIMULATION
 # ------------------------------
 class AggregationSimulation(Simulation):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tick_count = 0
-        self.max_ticks = 1000  # Limit to 1000 frames
+        self.max_ticks = 1000
         self.running = True
 
     def run(self):
         while self.running:
             self.tick()
-        pygame.quit()  # Close window when done
+        pygame.quit()
 
     def tick(self):
         if self.tick_count >= self.max_ticks:
@@ -128,12 +129,18 @@ class AggregationSimulation(Simulation):
 
         super().tick()
 
-        inside_count = 0
+        # Per-zone agent count
+        zone_counts = [0 for _ in AggregationAgent.zones]
         for agent in self._agents:
-            for zone in AggregationAgent.zones:
+            for i, zone in enumerate(AggregationAgent.zones):
                 if (agent.pos - zone.pos).length() < zone.radius:
-                    inside_count += 1
+                    zone_counts[i] += 1
                     break
+
+        zone_agent_counts.append(zone_counts)
+
+        # Global inside/outside tracking
+        inside_count = sum(zone_counts)
         outside_count = len(self._agents) - inside_count
         agent_counts_inside.append(inside_count)
         agent_counts_outside.append(outside_count)
@@ -144,12 +151,12 @@ class AggregationSimulation(Simulation):
 # RUN SIMULATION
 # ------------------------------
 
-radiusses = [80, 80] # We can change this variable to determine whether we want to have different radiuses or not
+radiusses = [130, 90] # We can change this variable to determine whether we want to have different radiuses or not
 # Experiment values are: [80, 80] [100, 100], [130, 90], [140, 80]
 
 AggregationAgent.zones = [
-    AggregationZone(Vector2(225, 400), radiusses[0]),
-    AggregationZone(Vector2(525, 400), radiusses[1])
+    AggregationZone(Vector2(225, 400), 100),
+    AggregationZone(Vector2(525, 400), 100)
 ]
 
 sim = AggregationSimulation(
@@ -166,6 +173,28 @@ sim.batch_spawn_agents(
     AggregationAgent,
     images=["Assignment_1/images/triangle.png"]
 ).run()
+
+# ------------------------------
+# ANALYZE FINAL DENSITIES
+# ------------------------------
+num_ticks = len(zone_agent_counts)
+num_zones = len(AggregationAgent.zones)
+
+# Compute average agent count per zone
+zone_sums = [0 for _ in range(num_zones)]
+for tick_counts in zone_agent_counts:
+    for i, count in enumerate(tick_counts):
+        zone_sums[i] += count
+
+average_counts = [total / num_ticks for total in zone_sums]
+zone_areas = [math.pi * zone.radius**2 for zone in AggregationAgent.zones]
+zone_densities = [avg / area for avg, area in zip(average_counts, zone_areas)]
+
+print("\n--- FINAL AVERAGE DENSITIES ---")
+for i, (avg, dens) in enumerate(zip(average_counts, zone_densities)):
+    print(f"Zone {i+1}:")
+    print(f"  Average number of agents: {avg:.2f}")
+    print(f"  Density (agents per unit area): {dens:.5f}")
 
 # ------------------------------
 # PLOT RESULTS
