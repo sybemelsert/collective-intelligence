@@ -9,6 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
 
+
 # ------------------------------
 # CONFIGURATION
 # ------------------------------
@@ -46,6 +47,7 @@ class AggregationAgent(Agent):
         self.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.speed
 
     def update(self):
+        # Draw aggregation zone (called every frame)
         screen = pygame.display.get_surface()
         if screen:
             for zone in AggregationAgent.zones:
@@ -55,39 +57,25 @@ class AggregationAgent(Agent):
 
     def change_position(self):
         neighbors = self.in_proximity_accuracy()
+        in_zone = False
+        n = 0
 
-        smaller_zone = AggregationAgent.zones[0]
-        bigger_zone = AggregationAgent.zones[1]
+        for zone in self.zones:
+            if (self.pos - zone.pos).length() < zone.radius:
+                in_zone = True
+                n += sum(1 for agent, _ in neighbors if (agent.pos - zone.pos).length() < zone.radius)
 
-        inside_smaller_zone = (self.pos - smaller_zone.pos).length() < smaller_zone.radius
-        inside_bigger_zone = (self.pos - bigger_zone.pos).length() < bigger_zone.radius
-
-        n_smaller = sum(1 for agent, _ in neighbors if (agent.pos - smaller_zone.pos).length() < smaller_zone.radius)
-        n_bigger = sum(1 for agent, _ in neighbors if (agent.pos - bigger_zone.pos).length() < bigger_zone.radius)
-
-        # Priority: bigger zone first, then smaller zone
-        if inside_bigger_zone:
-            in_zone = True
-            n = n_bigger
-        elif inside_smaller_zone:
-            in_zone = True
-            n = n_smaller
-        else:
-            in_zone = False
-            n = 0
-
+        # Probability formulas
         a, b = 1.70188, 3.88785
         PJoin = 0.03 + 0.48 * (1 - math.exp(-a * n)) if in_zone else 0
         PLeave = math.exp(-b * n) if in_zone else 1
 
-        # Set image index for visualization
-        if inside_bigger_zone:
-            self.change_image(2)
-        elif inside_smaller_zone:
-            self.change_image(1)
+        if in_zone:
+            self.change_image(1) 
         else:
-            self.change_image(0)
+            self.change_image(0) 
 
+        # State transitions
         if self.state == self.WANDERING:
             if random.random() < 0.02:
                 angle = random.uniform(-45, 45)
@@ -130,47 +118,43 @@ class AggregationAgent(Agent):
 # RUN SIMULATION
 # ------------------------------
 
-similar_radiuses = [100, 140]  # smaller zone radius, bigger zone radius
+similar_radiusses = [100, 100] # We can change this variable to determine whether we want to have different radiuses or not
+# Experiment values are: [80, 80] [100, 100], [130, 90], [140, 80]
 
 AggregationAgent.zones = [
-    AggregationZone(Vector2(225, 400), similar_radiuses[0]),
-    AggregationZone(Vector2(525, 400), similar_radiuses[1])
+    AggregationZone(Vector2(225, 400), similar_radiusses[0]),
+    AggregationZone(Vector2(525, 400), similar_radiusses[1])
 ]
 
-df = (
-    HeadlessSimulation(
-        AggregationConfig(
-            image_rotation=True,
-            speed=10,
-            radius=10,
-            fps_limit=0,
-            duration=100 * 60,
-        )
+df = ( HeadlessSimulation(
+    AggregationConfig(
+        image_rotation=True,
+        speed= 10,
+        radius=10,
+        fps_limit=0,
+        duration= 100 * 60,  
+        
     )
-    .batch_spawn_agents(
-        100,
-        AggregationAgent,
-        images=[
-            "Assignment_1/images/triangle.png",         # 0: outside any zone
-            "Assignment_1/images/triangle_zone.png",    # 1: inside smaller zone
-            "Assignment_1/images/triangle_zone.png"     # 2: inside bigger zone
-        ]
-    )
-    .run()
-    .snapshots
-    .group_by(["frame", "image_index"])
-    .agg(pl.count("id").alias("agents"))
 )
 
+.batch_spawn_agents(
+    100,
+    AggregationAgent,
+    images=["Assignment_1/images/triangle.png", "Assignment_1/images/triangle_zone.png"]
+).run()
+.snapshots
+.group_by(["frame", "image_index"])
+.agg(pl.count("id").alias("agents"))
+)
+
+# Generate unique filenames using timestamp
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 plot_filename = f"Assignment_1/aggregation_2plot_{timestamp}.png"
 data_filename = f"Assignment_1/aggregation_2data_{timestamp}.csv"
 
 print(df)
-df.write_csv(data_filename)  # Save data CSV
+#df.write_csv(data_filename)  # Save table as CSV
 
-df_pd = df.to_pandas()
-
-plot = sns.relplot(x='frame', y='agents', hue='image_index', kind='line', data=df_pd)
+plot = sns.relplot(x = df['frame'], y = df['agents'], hue = df['image_index'], kind="line")
 plot.savefig(plot_filename, dpi=300)
 print(f"Saved plot to {plot_filename} and data to {data_filename}")

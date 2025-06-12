@@ -139,7 +139,7 @@ for run in range(1, 2): # Change range for more runs
         .group_by(["frame", "image_index"])
         .agg(pl.count("id").alias("agents"))
     )
-    window_size = 10 # Adjust window size for smoothing
+    window_size = 500 # Adjust window size for smoothing
     df = df.sort(["image_index", "frame"])
     df = df.with_columns(
         pl.col("agents")
