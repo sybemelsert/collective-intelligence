@@ -115,38 +115,47 @@ class AggregationAgent(Agent):
         self.pos.y %= 1000
 
 # ------------------------------
-# RUN SIMULATION
+# RUN SIMULATION  
 # ------------------------------
 AggregationAgent.zone = AggregationZone(Vector2(500, 500), 120)
-df = ( HeadlessSimulation(
-    AggregationConfig(
-        image_rotation=True,
-        speed= 10,
-        radius=10,
-        fps_limit=0,
-        duration= 1000 * 60,  
-        
+for run in range(1, 2): # Change range for more runs
+    df = (
+        HeadlessSimulation(
+            AggregationConfig(
+                image_rotation=True,
+                speed=10,
+                radius=10,
+                fps_limit=0,
+                duration=1000 * 60, # Length of simulation
+            )
+        )
+        .batch_spawn_agents(
+            100,
+            AggregationAgent,
+            images=["Assignment_1/images/triangle.png", "Assignment_1/images/triangle_zone.png"]
+        )
+        .run()
+        .snapshots
+        .group_by(["frame", "image_index"])
+        .agg(pl.count("id").alias("agents"))
     )
-)
+    window_size = 10 # Adjust window size for smoothing
+    df = df.sort(["image_index", "frame"])
+    df = df.with_columns(
+        pl.col("agents")
+        .rolling_mean(window_size, min_periods=1)
+        .over("image_index")
+        .alias("agents_smoothed")
+    )
 
-.batch_spawn_agents(
-    100,
-    AggregationAgent,
-    images=["Assignment_1/images/triangle.png", "Assignment_1/images/triangle_zone.png"]
-).run()
-.snapshots
-.group_by(["frame", "image_index"])
-.agg(pl.count("id").alias("agents"))
-)
+    # Generate unique filenames using timestamp and run number
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    plot_filename = f"Assignment_1/results_stage1/aggregation_plot_smoothed_{timestamp}_run{run}.png"
+    data_filename = f"Assignment_1/results_stage1/aggregation_data_{timestamp}_run{run}.csv"
 
-# Generate unique filenames using timestamp
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-plot_filename = f"Assignment_1/aggregation_plot_{timestamp}.png"
-data_filename = f"Assignment_1/aggregation_data_{timestamp}.csv"
+    print(df)
+    df.write_csv(data_filename)  # Save table as CSV
 
-print(df)
-#df.write_csv(data_filename)  # Save table as CSV
-
-plot = sns.relplot(x = df['frame'], y = df['agents'], hue = df['image_index'], kind="line")
-plot.savefig(plot_filename, dpi=300)
-print(f"Saved plot to {plot_filename} and data to {data_filename}")
+    plot = sns.relplot(x=df['frame'], y=df['agents_smoothed'], hue=df['image_index'], kind="line")
+    plot.savefig(plot_filename, dpi=300)
+    print(f"Saved plot to {plot_filename} and data to {data_filename}")
