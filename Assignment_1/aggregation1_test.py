@@ -8,6 +8,7 @@ import polars as pl
 import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
+from collections.abc import Mapping
 
 
 # ------------------------------
