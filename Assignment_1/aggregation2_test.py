@@ -34,7 +34,7 @@ class AggregationZone:
 # ------------------------------
 class AggregationAgent(Agent):
     WANDERING, JOIN, STILL, LEAVE = range(4)
-    zone = None
+    zones = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -49,31 +49,31 @@ class AggregationAgent(Agent):
     def update(self):
         # Draw aggregation zone (called every frame)
         screen = pygame.display.get_surface()
-        if screen and AggregationAgent.zone:
-            pos = AggregationAgent.zone.pos
-            radius = AggregationAgent.zone.radius
-            pygame.draw.circle(screen, (255, 255, 0), (int(pos.x), int(pos.y)), int(radius), width=2)
+        if screen:
+            for zone in AggregationAgent.zones:
+                pos = zone.pos
+                radius = zone.radius
+                pygame.draw.circle(screen, (255, 255, 0), (int(pos.x), int(pos.y)), int(radius), width=2)
 
     def change_position(self):
-        zone = self.zone
         neighbors = self.in_proximity_accuracy()
+        in_zone = False
+        n = 0
 
-        if zone:
-            in_zone = (self.pos - zone.pos).length() < zone.radius
-            n = sum(1 for agent, _ in neighbors if (agent.pos - zone.pos).length() < zone.radius)
-        else:
-            n = sum(1 for _, dist in neighbors if dist < self.config.aggregation_zone_radius)
-            in_zone = n > 0
-        self.in_zone = in_zone  
-        self.state_name = ["WANDERING", "JOIN", "STILL", "LEAVE"][self.state]  # <--- For easier analysis
+        for zone in self.zones:
+            if (self.pos - zone.pos).length() < zone.radius:
+                in_zone = True
+                n += sum(1 for agent, _ in neighbors if (agent.pos - zone.pos).length() < zone.radius)
+
         # Probability formulas
         a, b = 1.70188, 3.88785
         PJoin = 0.03 + 0.48 * (1 - math.exp(-a * n)) if in_zone else 0
         PLeave = math.exp(-b * n) if in_zone else 1
+
         if in_zone:
-            self.change_image(1) # assign the alternate image index when inside the zone
+            self.change_image(1) 
         else:
-            self.change_image(0) # default image index when outside
+            self.change_image(0) 
 
         # State transitions
         if self.state == self.WANDERING:
@@ -117,14 +117,22 @@ class AggregationAgent(Agent):
 # ------------------------------
 # RUN SIMULATION
 # ------------------------------
-AggregationAgent.zone = AggregationZone(Vector2(500, 500), 120)
+
+similar_radiusses = [100, 100] # We can change this variable to determine whether we want to have different radiuses or not
+# Experiment values are: [80, 80] [100, 100], [130, 90], [140, 80]
+
+AggregationAgent.zones = [
+    AggregationZone(Vector2(225, 400), similar_radiusses[0]),
+    AggregationZone(Vector2(525, 400), similar_radiusses[1])
+]
+
 df = ( HeadlessSimulation(
     AggregationConfig(
         image_rotation=True,
         speed= 10,
         radius=10,
         fps_limit=0,
-        duration= 1000 * 60,  
+        duration= 100 * 60,  
         
     )
 )
@@ -141,8 +149,8 @@ df = ( HeadlessSimulation(
 
 # Generate unique filenames using timestamp
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-plot_filename = f"Assignment_1/aggregation_plot_{timestamp}.png"
-data_filename = f"Assignment_1/aggregation_data_{timestamp}.csv"
+plot_filename = f"Assignment_1/aggregation_2plot_{timestamp}.png"
+data_filename = f"Assignment_1/aggregation_2data_{timestamp}.csv"
 
 print(df)
 #df.write_csv(data_filename)  # Save table as CSV
