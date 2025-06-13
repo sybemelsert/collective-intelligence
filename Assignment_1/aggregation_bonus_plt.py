@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from vi import Agent, Config, Simulation
 from pygame.math import Vector2
-import random
-import math
+import random, math, datetime
+import polars as pl
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 @dataclass
 class AggregationConfig(Config):
@@ -11,11 +13,6 @@ class AggregationConfig(Config):
     aggregation_zone_radius: float = 120.0
     Tjoin: int = 30
     Tleave: int = 30
-
-class AggregationZone:
-    def __init__(self, pos: Vector2, radius: float):
-        self.pos = pos
-        self.radius = radius
 
 class AggregationAgent(Agent):
     WANDERING, JOIN, STILL, LEAVE = range(4)
@@ -32,15 +29,9 @@ class AggregationAgent(Agent):
         self.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.speed
 
     def change_position(self):
-        zone = self.zone
         neighbors = self.in_proximity_accuracy()
-
-        if zone:
-            in_zone = (self.pos - zone.pos).length() < zone.radius
-            n = sum(1 for agent, _ in neighbors if (agent.pos - zone.pos).length() < zone.radius)
-        else:
-            n = sum(1 for _, dist in neighbors if dist < self.config.aggregation_zone_radius)
-            in_zone = n > 0
+        n = sum(1 for _, dist in neighbors if dist < self.config.aggregation_zone_radius)
+        in_zone = n > 0
 
         a, b = 1.70188, 3.88785
         PJoin = 0.03 + 0.48 * (1 - math.exp(-a * n)) if in_zone else 0
@@ -79,25 +70,62 @@ class AggregationAgent(Agent):
             self.pos += self.move
 
         self._wrap_position()
+        self.save_data("state", self.state)
+
 
     def _wrap_position(self):
         self.pos.x %= 1000
         self.pos.y %= 1000
 
-# To use a zone, uncomment below:
-# AggregationAgent.zone = AggregationZone(Vector2(500, 500), 120)
-
-sim = Simulation(
-    AggregationConfig(
-        image_rotation=True,
-        speed=1,
-        radius=10,
-        fps_limit=0,
+# Run the simulation and access snapshots
+sim = (
+    Simulation(
+        AggregationConfig(
+            image_rotation=True,
+            speed=1,
+            radius=10,
+            fps_limit=0,
+            duration=1000 * 60,
+        )
     )
+    .batch_spawn_agents(100, AggregationAgent, images=["Assignment_1/images/triangle.png"])
+    .run()
 )
 
-sim.batch_spawn_agents(
-    100,
-    AggregationAgent,
-    images=["Assignment_1/images/triangle.png"]
-).run()
+# Get agent states per frame from snapshots
+df = (
+    sim.snapshots
+    .group_by(["frame", "state"])
+    .agg(pl.count("id").alias("agents"))
+)
+
+# Optional: smoothing
+window_size = 300
+df = df.sort(["state", "frame"])
+df = df.with_columns(
+    pl.col("agents")
+    .rolling_mean(window_size, min_periods=1)
+    .over("state")
+    .alias("agents_smoothed")
+)
+
+# Map state indices to names for plotting
+state_names = {0: "WANDERING", 1: "JOIN", 2: "STILL", 3: "LEAVE"}
+df = df.with_columns(
+    pl.col("state").map_elements(lambda s: state_names.get(s, str(s))).alias("state_name")
+)
+
+# Save data
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+plot_filename = f"Assignment_1/results_stage2/bonus{timestamp}.png"
+data_filename = f"Assignment_1/results_stage2/State_data_{timestamp}.csv"
+
+df.write_csv(data_filename)
+
+# Plot
+sns.set(style="darkgrid")
+plot = sns.relplot(data=df.to_pandas(), x="frame", y="agents_smoothed", hue="state_name", kind="line")
+plot.set_titles("Agent States Over Time")
+plot.savefig(plot_filename, dpi=300)
+
+print(f"Saved plot to {plot_filename} and data to {data_filename}")

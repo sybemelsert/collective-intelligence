@@ -124,7 +124,7 @@ class AggregationAgent(Agent):
 # RUN SIMULATION
 # ------------------------------
 
-similar_radiusses = [130, 90] # We can change this variable to determine whether we want to have different radiuses or not
+similar_radiusses = [80, 80] # We can change this variable to determine whether we want to have different radiuses or not
 # Experiment values are: [80, 80] [100, 100], [130, 90], [140, 80]
 
 AggregationAgent.zones = [
