@@ -68,6 +68,16 @@ class AggregationAgent(Agent):
         a, b = 1.70188, 3.88785
         PJoin = 0.03 + 0.48 * (1 - math.exp(-a * n)) if in_zone else 0
         PLeave = math.exp(-b * n) if in_zone else 1
+        # Determine which zone (if any) the agent is in
+        in_first_zone = (self.pos - self.zones[0].pos).length() < self.zones[0].radius
+        in_second_zone = (self.pos - self.zones[1].pos).length() < self.zones[1].radius
+
+        if in_first_zone:
+            self.change_image(1)
+        elif in_second_zone:
+            self.change_image(2)
+        else:
+            self.change_image(0)
 
         if self.state == self.WANDERING:
             if random.random() < 0.02:
@@ -171,7 +181,7 @@ sim = AggregationSimulation(
 sim.batch_spawn_agents(
     100,
     AggregationAgent,
-    images=["Assignment_1/images/triangle.png"]
+    images=["Assignment_1/images/triangle.png", "Assignment_1/images/triangle_zone.png", "Assignment_1/images/triangle_zone.png"]
 ).run()
 
 # ------------------------------

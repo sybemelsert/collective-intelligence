@@ -70,10 +70,16 @@ class AggregationAgent(Agent):
         PJoin = 0.03 + 0.48 * (1 - math.exp(-a * n)) if in_zone else 0
         PLeave = math.exp(-b * n) if in_zone else 1
 
-        if in_zone:
-            self.change_image(1) 
+        # Determine which zone (if any) the agent is in
+        in_first_zone = (self.pos - self.zones[0].pos).length() < self.zones[0].radius
+        in_second_zone = (self.pos - self.zones[1].pos).length() < self.zones[1].radius
+
+        if in_first_zone:
+            self.change_image(1)
+        elif in_second_zone:
+            self.change_image(2)
         else:
-            self.change_image(0) 
+            self.change_image(0)
 
         # State transitions
         if self.state == self.WANDERING:
@@ -118,7 +124,7 @@ class AggregationAgent(Agent):
 # RUN SIMULATION
 # ------------------------------
 
-similar_radiusses = [100, 100] # We can change this variable to determine whether we want to have different radiuses or not
+similar_radiusses = [130, 90] # We can change this variable to determine whether we want to have different radiuses or not
 # Experiment values are: [80, 80] [100, 100], [130, 90], [140, 80]
 
 AggregationAgent.zones = [
@@ -126,35 +132,44 @@ AggregationAgent.zones = [
     AggregationZone(Vector2(525, 400), similar_radiusses[1])
 ]
 
-df = ( HeadlessSimulation(
-    AggregationConfig(
-        image_rotation=True,
-        speed= 10,
-        radius=10,
-        fps_limit=0,
-        duration= 100 * 60,  
-        
+for run in range(1, 3): # Change range for more runs
+    df = (
+        HeadlessSimulation(
+            AggregationConfig(
+                image_rotation=True,
+                speed=10,
+                radius=10,
+                fps_limit=0,
+                duration=1000 * 60, # Length of simulation
+            )
+        )
+        .batch_spawn_agents(
+            100,
+            AggregationAgent,
+            images=["Assignment_1/images/triangle.png", "Assignment_1/images/triangle_zone.png", "Assignment_1/images/triangle_zone.png"]
+        )
+        .run()
+        .snapshots
+        .group_by(["frame", "image_index"])
+        .agg(pl.count("id").alias("agents"))
     )
-)
+    window_size = 500 # Adjust window size for smoothing
+    df = df.sort(["image_index", "frame"])
+    df = df.with_columns(
+        pl.col("agents")
+        .rolling_mean(window_size, min_periods=1)
+        .over("image_index")
+        .alias("agents_smoothed")
+    )
 
-.batch_spawn_agents(
-    100,
-    AggregationAgent,
-    images=["Assignment_1/images/triangle.png", "Assignment_1/images/triangle_zone.png"]
-).run()
-.snapshots
-.group_by(["frame", "image_index"])
-.agg(pl.count("id").alias("agents"))
-)
+    # Generate unique filenames using timestamp and run number
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    plot_filename = f"Assignment_1/results_stage2/Difaggregation_plot_smoothed_{timestamp}_run{run}.png"
+    data_filename = f"Assignment_1/results_stage2/Difaggregation_data_{timestamp}_run{run}.csv"
 
-# Generate unique filenames using timestamp
-timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-plot_filename = f"Assignment_1/aggregation_2plot_{timestamp}.png"
-data_filename = f"Assignment_1/aggregation_2data_{timestamp}.csv"
+    print(df)
+    df.write_csv(data_filename)  # Save table as CSV
 
-print(df)
-#df.write_csv(data_filename)  # Save table as CSV
-
-plot = sns.relplot(x = df['frame'], y = df['agents'], hue = df['image_index'], kind="line")
-plot.savefig(plot_filename, dpi=300)
-print(f"Saved plot to {plot_filename} and data to {data_filename}")
+    plot = sns.relplot(x=df['frame'], y=df['agents_smoothed'], hue=df['image_index'], kind="line")
+    plot.savefig(plot_filename, dpi=300)
+    print(f"Saved plot to {plot_filename} and data to {data_filename}")
