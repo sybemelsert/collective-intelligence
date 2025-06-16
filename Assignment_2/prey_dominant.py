@@ -7,7 +7,7 @@ class SimConfig(Config): #switch numbers here for different results
     radius: float = 10
     speed: float = 1.0
     prey_reproduction_prob: float = 0.001
-    predator_death_prob: float = 0.003
+    predator_death_prob: float = 0.005
     predator_reproduction_chance: float = 1
 
 class Prey(Agent):
