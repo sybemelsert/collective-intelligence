@@ -51,7 +51,7 @@ class Predator(Agent):
 
 # Launch simulation
 (
-    Simulation(config=SimConfig())
+    Simulation(config=SimConfig(duration=60 * 60 * 1))  # 1 minute simulation
     .batch_spawn_agents(60, Prey, images=["Assignment_2/images/prey_small.png"])
     .batch_spawn_agents(20, Predator, images=["Assignment_2/images/predator_small.png"])
     .run()
