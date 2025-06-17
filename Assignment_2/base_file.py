@@ -1,18 +1,22 @@
 from dataclasses import dataclass
 from vi import Agent, Config, Simulation
 import random
+import polars as pl
+import matplotlib.pyplot as plt
+import datetime
 
 @dataclass
 class SimConfig(Config): #switch numbers here for different results
     radius: float = 10
     speed: float = 1.0
-    prey_reproduction_prob: float = 0.001
-    predator_death_prob: float = 0.003
+    prey_reproduction_prob: float = 0.0005
+    predator_death_prob: float = 0.001
     predator_reproduction_chance: float = 1
 
 class Prey(Agent):
     def update(self):
         self.pos += self.move
+        self.save_data('kind', "Prey")
 
         # Asexual reproduction
         if random.random() < self.config.prey_reproduction_prob:
@@ -25,6 +29,7 @@ class Predator(Agent):
 
     def update(self):
         self.pos += self.move
+        self.save_data('kind', "Predator")
 
         # Look for prey nearby
         prey = (
@@ -50,9 +55,11 @@ class Predator(Agent):
         self.has_eaten = False
 
 # Launch simulation
-(
-    Simulation(config=SimConfig(duration=60 * 60 * 1))  # 1 minute simulation
+result_df = (
+    Simulation(config=SimConfig(duration=60 * 60 * 0.5))
     .batch_spawn_agents(60, Prey, images=["Assignment_2/images/prey_small.png"])
     .batch_spawn_agents(20, Predator, images=["Assignment_2/images/predator_small.png"])
     .run()
+    .snapshots
 )
+print(result_df)

@@ -1,38 +1,37 @@
 from dataclasses import dataclass
-from vi import Agent, Config, HeadlessSimulation
+from vi import Agent, Config, Simulation, HeadlessSimulation
 import random
 import polars as pl
 import matplotlib.pyplot as plt
 import datetime
 
 @dataclass
-class SimConfig(Config):
+class SimConfig(Config): #switch numbers here for different results
     radius: float = 15
     speed: float = 1.0
-    prey_reproduction_prob: float = 0.001
+    prey_reproduction_prob: float = 0.0012
     predator_death_prob: float = 0.002
     predator_reproduction_chance: float = 1
-    duration: int = 60 * 60 * 2 # Simulation duration in minutes
 
 class Prey(Agent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.change_image(0)  # Explicitly set image index for prey
-    
     def update(self):
         self.pos += self.move
+        self.save_data('kind', "Prey")
+
+        # Asexual reproduction
         if random.random() < self.config.prey_reproduction_prob:
-            child = self.reproduce()
-            child.change_image(0)  # Ensure offspring are also prey
-    
+            self.reproduce()
+
 class Predator(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.change_image(1)  # Explicitly set image index for predator
         self.has_eaten = False
-   
+
     def update(self):
         self.pos += self.move
+        self.save_data('kind', "Predator")
+
+        # Look for prey nearby
         prey = (
             self.in_proximity_accuracy()
             .without_distance()
@@ -40,74 +39,56 @@ class Predator(Agent):
             .first()
         )
 
+        # If prey is found, eat and possibly reproduce
         if prey is not None:
             prey.kill()
             self.has_eaten = True
-            if random.random() < self.config.predator_reproduction_chance:
-                child = self.reproduce()
-                child.change_image(1)  # Ensure offspring are also predators
 
+            # ✅ Predator, not prey, reproduces
+            if random.random() < self.config.predator_reproduction_chance:
+                self.reproduce()
+
+        # Spontaneous death if didn't eat
         if not self.has_eaten and random.random() < self.config.predator_death_prob:
             self.kill()
+
         self.has_eaten = False
 
-# Run simulation
-for run in range(1, 2):  # Change range for more runs
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    plot_filename = f"Assignment_2/test_results/prey_predator_plot_{timestamp}_run{run}.png"
-    data_filename = f"Assignment_2/test_results/prey_predator_data_{timestamp}_run{run}.csv"
+# Launch simulation
+result_df = (
+    HeadlessSimulation(config=SimConfig(duration=60 * 60 * 4))
+    .batch_spawn_agents(60, Prey, images=["Assignment_2/images/prey_small.png"])
+    .batch_spawn_agents(20, Predator, images=["Assignment_2/images/predator_small.png"])
+    .run()
+    .snapshots
+)
 
-    # Create simulation with both images
-    sim = (
-        HeadlessSimulation(SimConfig())
-        .batch_spawn_agents(60, Prey, images=[
-            "Assignment_2/images/prey_small.png",  # image_index 0
-            "Assignment_2/images/predator_small.png"  # image_index 1
-        ])
-        .batch_spawn_agents(20, Predator, images=[
-            "Assignment_2/images/prey_small.png",  # image_index 0
-            "Assignment_2/images/predator_small.png"  # image_index 1
-        ])
-    )
+# === Save CSV ===
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+csv_path = f"Assignment_2/test_results/snapshot_data_{timestamp}.csv"
+#result_df.write_csv(csv_path)
+print(f"Saved snapshot data to {csv_path}")
 
-    # Run and process data
-    df = (
-        sim.run()
-        .snapshots
-        .group_by(["frame", "image_index"])
-        .agg(pl.count("id").alias("count"))
-        .sort("frame")
-    )
+# === Plot 1: Population Over Time ===
+df_grouped = (
+    result_df
+    .group_by(["frame", "kind"])
+    .agg(pl.count("id").alias("count"))
+    .pivot(index="frame", values="count", on="kind")
 
-    # Add smoothing
-    window_size = 500
-    df = df.with_columns(
-        pl.col("count")
-        .rolling_mean(window_size, min_periods=1)
-        .over("image_index")
-        .alias("count_smoothed")
-    )
+    .fill_null(0)
+    .sort("frame")
+)
 
-    # Save data
-    df.write_csv(data_filename)
-
-    # Plot results
-    plt.figure(figsize=(10, 6))
-    
-    # Map image indices to labels
-    image_labels = {0: "Prey", 1: "Predator"}
-    
-    for image_index in [0, 1]:
-        sub_df = df.filter(pl.col("image_index") == image_index)
-        plt.plot(sub_df["frame"], sub_df["count_smoothed"], label=image_labels[image_index])
-
-    plt.xlabel("Frame")
-    plt.ylabel("Number of Agents (Smoothed)")
-    plt.title("Prey vs Predator Population Dynamics")
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig(plot_filename, dpi=300)
-    plt.close()
-
-    print(f"Saved plot to {plot_filename} and data to {data_filename}")
+plt.figure(figsize=(10, 6))
+for kind in df_grouped.columns[1:]:
+    plt.plot(df_grouped["frame"], df_grouped[kind], label=kind)
+plt.title("Agent Population Over Time")
+plt.xlabel("Frame")
+plt.ylabel("Count")
+plt.legend()
+plt.grid(True)
+plot1_path = f"Assignment_2/test_results/population_over_time_{timestamp}.png"
+plt.savefig(plot1_path, dpi=300)
+plt.close()
+print(f"Saved population plot to {plot1_path}")
