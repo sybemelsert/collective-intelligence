@@ -9,8 +9,8 @@ import datetime
 class SimConfig(Config): #switch numbers here for different results
     radius: float = 15
     speed: float = 1.0
-    prey_reproduction_prob: float = 0.0012
-    predator_death_prob: float = 0.002
+    prey_reproduction_prob: float = 0.001
+    predator_death_prob: float = 0.001
     predator_reproduction_chance: float = 1
 
 class Prey(Agent):
@@ -56,7 +56,7 @@ class Predator(Agent):
 
 # Launch simulation
 result_df = (
-    HeadlessSimulation(config=SimConfig(duration=60 * 60 * 4))
+    HeadlessSimulation(config=SimConfig(duration=60 * 60 * 2))
     .batch_spawn_agents(60, Prey, images=["Assignment_2/images/prey_small.png"])
     .batch_spawn_agents(20, Predator, images=["Assignment_2/images/predator_small.png"])
     .run()
