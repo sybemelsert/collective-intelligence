@@ -108,9 +108,9 @@ prey, predators = solution.T
 
 # Plot results
 plt.figure(figsize=(10, 6))
-plt.plot(t, prey, label="Prey Population 🐇", linewidth=2)
-plt.plot(t, predators, label="Predator Population 🦊", linewidth=2)
-plt.axvline(x=100, color='red', linestyle='--', label='🐉 Dragon Appears (t=100)')
+plt.plot(t, prey, label="Prey Population ", linewidth=2)
+plt.plot(t, predators, label="Predator Population ", linewidth=2)
+plt.axvline(x=100, color='red', linestyle='--', label=' Dragon Appears (t=100)')
 plt.xlabel('Time')
 plt.ylabel('Population')
 plt.title('Predator-Prey Dynamics with Dragon Intervention')
