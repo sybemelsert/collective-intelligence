@@ -5,10 +5,10 @@ import random
 # --- Simulation configuration ---
 @dataclass
 class SimConfig(Config):
-    radius: float = 10
+    radius: float = 30
     speed: float = 1.0
-    prey_reproduction_prob: float = 0.001
-    predator_death_prob: float = 0.005
+    prey_reproduction_prob: float = 0.0005
+    predator_death_prob: float = 0.0025
     predator_reproduction_chance: float = 1
     duration: int = 60 * 60 * 0.5  # 30-minute simulated time
 
@@ -48,14 +48,34 @@ class Predator(Agent):
 
 # --- Attacker Dragon agent ---
 class AttackerDragon(Agent):
+    dragon_speed = 3
+
     def update(self):
-        self.pos += self.move
         self.save_data('kind', "AttackerDragon")  # log position & kind
 
-        nearby_prey = self.in_proximity_accuracy().filter_kind(Prey)
-        for prey_tuple in nearby_prey:
-            prey = prey_tuple[0]
+        prey = (
+            self.in_proximity_accuracy()
+            .without_distance()
+            .filter_kind(Prey)
+            .first()
+        )
+
+        if prey is not None:
+            # Compute direction vector toward the prey
+            direction = prey.pos - self.pos
+
+            # Normalize the direction vector
+            if direction.magnitude() != 0:
+                direction = direction.normalize()
+
+            # Move in the direction of the prey
+            self.pos += direction * self.dragon_speed
+
+            # Kill the prey if within attack range
             prey.kill()
+        else:
+            # Default movement if no prey found
+            self.pos += self.move * self.dragon_speed
 
 # --- Run simulation ---
 result_df = (
@@ -107,9 +127,9 @@ prey, predators = solution.T
 """
 # Plot results
 plt.figure(figsize=(10, 6))
-plt.plot(t, prey, label="Prey Population 🐇", linewidth=2)
-plt.plot(t, predators, label="Predator Population 🦊", linewidth=2)
-plt.axvline(x=100, color='red', linestyle='--', label='🐉 Dragon Appears (t=100)')
+plt.plot(t, prey, label="Prey Population ", linewidth=2)
+plt.plot(t, predators, label="Predator Population ", linewidth=2)
+plt.axvline(x=100, color='red', linestyle='--', label=' Dragon Appears (t=100)')
 plt.xlabel('Time')
 plt.ylabel('Population')
 plt.title('Predator-Prey Dynamics with Dragon Intervention')
