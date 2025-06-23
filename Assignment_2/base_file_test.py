@@ -21,9 +21,11 @@ class Prey(Agent):
         self.pos += self.move
         self.save_data('kind', "Prey")
         global TOTAL_PREY  # <-- Add this line here
+        
 
         # Asexual reproduction
-        if TOTAL_PREY < 1000 and random.random() < self.config.prey_reproduction_prob:
+       
+        if TOTAL_PREY < 500 and random.random() < self.config.prey_reproduction_prob:
             self.reproduce()
             TOTAL_PREY += 1
 
@@ -48,6 +50,8 @@ class Predator(Agent):
         if prey is not None:
             prey.kill()
             self.has_eaten = True
+            global TOTAL_PREY  # <-- Add this line here
+            TOTAL_PREY -= 1  # Decrease prey
 
             # ✅ Predator, not prey, reproduces
             if random.random() < self.config.predator_reproduction_chance:
@@ -95,9 +99,16 @@ for i in range(num_runs):
         (pl.col("frame") / 60).alias("time_seconds")
     )
 
+
+
+    df_grouped = df_grouped.with_columns(
+        (pl.col("frame") / 60).alias("time_seconds")
+    )
+
     plt.figure(figsize=(10, 6))
     for kind in df_grouped.columns[1:-1]:  # exclude 'frame' and 'time_seconds' columns
         plt.plot(df_grouped["time_seconds"], df_grouped[kind], label=kind)
+    
     plt.title(f"Population Over Time (Run {i+1})")
     plt.xlabel("Time (seconds)")
     plt.ylabel("Count")
@@ -105,5 +116,5 @@ for i in range(num_runs):
     plt.grid(True)
     plt.savefig(plot1_path, dpi=300)
     plt.close()
-    plt.close()
+    
     print(f"✅ Saved population plot to {plot1_path}")
