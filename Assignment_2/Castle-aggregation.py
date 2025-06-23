@@ -41,12 +41,16 @@ class Castle(Agent):
 
     def enter(self, prey):
         self.preys_in_castle[prey] = 0
-        # Random position within castle radius when entering (but not too close to center)
+        # Calculate position within castle radius but not too close to center
         angle = random.uniform(0, 2*math.pi)
-        min_distance = prey.config.radius * 2  # Minimum distance from center
-        max_distance = self.config.castle_radius - prey.config.radius
+        min_distance = prey.config.radius  # Minimum distance from center
+        max_distance = self.config.castle_radius - (prey.config.radius/0.7)
         distance = random.uniform(min_distance, max_distance)
         prey.pos = self.pos + Vector2(math.cos(angle), math.sin(angle)) * distance
+        # Set initial movement direction
+        prey.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.castle_wander_speed
+    def leave(self, prey):
+        self.preys_in_castle.pop(prey, None)
 
     def tick(self):
         to_remove = []
@@ -65,59 +69,28 @@ class Prey(Agent):
         self.castle_timer = 0
         self.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.speed
         self.current_castle = None
-        self.wander_timer = 0
 
     def update(self):
         if self.in_castle:
             self.save_data('kind', 'Prey (in castle)')
             self.castle_timer += 1
-            
-            # Wandering behavior inside castle
-            self.wander_timer += 1
-            if self.wander_timer > 30:  # Change direction periodically
-                self.wander_timer = 0
-                angle = random.uniform(-45, 45)
-                self.move = self.move.rotate(angle).normalize() * self.config.castle_wander_speed
-            
-            # Calculate new position
-            new_pos = self.pos + self.move
-            
-            # Verify new position stays within castle bounds
-            if self.current_castle:
-                to_center = new_pos - self.current_castle.pos
-                distance = to_center.length()
-                max_distance = self.current_castle.config.castle_radius - self.config.radius
-                
-                if distance <= max_distance:
-                    # Move freely if within bounds
-                    self.pos = new_pos
-                else:
-                    # Adjust position to stay exactly at the boundary if trying to move out
-                    self.pos = self.current_castle.pos + (to_center.normalize() * max_distance)
-                    # Bounce off the wall
-                    normal = to_center.normalize()
-                    self.move = self.move.reflect(normal) * 0.8
-            
             if self.castle_timer >= self.config.max_castle_stay:
                 self.leave_castle()
             return
         else:
             self.save_data('kind', 'Prey')
-        
-        # Castle detection
+
         for agent, dist in self.in_proximity_accuracy().filter_kind(Castle):
             if dist < self.config.detection_radius:
                 castle = agent
                 if (self.pos - castle.pos).length() <= castle.config.castle_radius and castle.allow_entry(self):
                     self.enter_castle(castle)
                     return
-                
                 repel = (self.pos - castle.pos)
                 if repel.length() > 0:
                     repel = repel.normalize()
                 self.move += repel * self.config.repel_strength
 
-        # Normal movement
         self.move = self.move.normalize() * self.config.speed
         self.pos += self.move
 
@@ -129,11 +102,11 @@ class Prey(Agent):
         self.castle_timer = 0
         self.current_castle = castle
         castle.enter(self)
-        # Start with random movement direction
-        self.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.castle_wander_speed
+        self.move = Vector2(0, 0)  # Stay still in the castle
 
     def leave_castle(self):
         if self.current_castle:
+            self.current_castle.leave(self)  # NEW: notify castle
             repel_vector = (self.pos - self.current_castle.pos)
             if repel_vector.length() > 0:
                 repel_vector = repel_vector.normalize()
@@ -144,7 +117,8 @@ class Prey(Agent):
         self.in_castle = False
         self.castle_timer = 0
         self.current_castle = None
-        self.wander_timer = 0
+
+
 
 class Predator(Agent):
     def __init__(self, *args, **kwargs):
@@ -186,8 +160,8 @@ class Predator(Agent):
 result_df = (
     Simulation(config=SimConfig(duration=60 * 60 * 0.5))
     .spawn_agent(Castle, images=["Assignment_2/images/fort.png"])
-    .batch_spawn_agents(20, Prey, images=["Assignment_2/images/prey_small.png"])
-    .batch_spawn_agents(10, Predator, images=["Assignment_2/images/predator_small.png"])
+    .batch_spawn_agents(100, Prey, images=["Assignment_2/images/prey_small.png"])
+    .batch_spawn_agents(0, Predator, images=["Assignment_2/images/predator_small.png"])
     .run()
     .snapshots
 )
