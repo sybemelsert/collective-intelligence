@@ -5,10 +5,10 @@ import random
 # --- Simulation configuration ---
 @dataclass
 class SimConfig(Config):
-    radius: float = 10
+    radius: float = 30
     speed: float = 1.0
-    prey_reproduction_prob: float = 0.001
-    predator_death_prob: float = 0.005
+    prey_reproduction_prob: float = 0.0005
+    predator_death_prob: float = 0.0025
     predator_reproduction_chance: float = 1
     duration: int = 60 * 60 * 0.5  # 30-minute simulated time
 
@@ -48,14 +48,34 @@ class Predator(Agent):
 
 # --- Attacker Dragon agent ---
 class AttackerDragon(Agent):
+    dragon_speed = 4
+
     def update(self):
-        self.pos += self.move
         self.save_data('kind', "AttackerDragon")  # log position & kind
 
-        nearby_prey = self.in_proximity_accuracy().filter_kind(Prey)
-        for prey_tuple in nearby_prey:
-            prey = prey_tuple[0]
+        prey = (
+            self.in_proximity_accuracy()
+            .without_distance()
+            .filter_kind(Prey)
+            .first()
+        )
+
+        if prey is not None:
+            # Compute direction vector toward the prey
+            direction = prey.pos - self.pos
+
+            # Normalize the direction vector
+            if direction.magnitude() != 0:
+                direction = direction.normalize()
+
+            # Move in the direction of the prey
+            self.pos += direction * self.dragon_speed
+
+            # Kill the prey if within attack range
             prey.kill()
+        else:
+            # Default movement if no prey found
+            self.pos += self.move * self.dragon_speed
 
 # --- Run simulation ---
 result_df = (
@@ -67,54 +87,64 @@ result_df = (
     .snapshots
 )
 
-import numpy as np
+import pandas as pd
+
+# Try converting result to DataFrame
+df = pd.DataFrame(result_df)
+
+# Print structure
+print("\n--- Type of result_df:", type(result_df))
+print("--- First few entries ---")
+for i, entry in enumerate(result_df[:5]):
+    print(f"{i}: {entry} (type: {type(entry)})")
+
+print("\n--- DataFrame columns ---")
+print(df.columns)
+print(df.head())
+
+import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.integrate import odeint
 
-# Classic Lotka-Volterra parameters
-alpha = 0.1   # Prey birth rate
-beta = 0.02   # Predation rate
-delta = 0.01  # Predator reproduction rate
-gamma = 0.1   # Predator death rate
+# Convert Polars DF to Pandas
+df = pd.DataFrame(result_df)
 
-# Dragon phase parameters (no predation, no predator reproduction)
-gamma_dragon = 0.15  # Faster predator death due to dragon
-alpha_dragon = 0.2   # Faster prey growth (no predators)
+# Rename the columns explicitly
+df.columns = ['tick', 'id', 'x', 'y', 'image_index', 'kind']
 
-# Time grid
-t = np.linspace(0, 200, 2000)
+# Group by tick and kind
+grouped = df.groupby(['tick', 'kind']).size().unstack(fill_value=0)
 
-# Define ODEs
-def lotka_volterra(state, t):
-    x, y = state
-    if t < 100:
-        dxdt = alpha * x - beta * x * y
-        dydt = delta * x * y - gamma * y
-    else:
-        dxdt = alpha_dragon * x  # Exponential prey growth
-        dydt = -gamma_dragon * y  # Predator decline
-    return [dxdt, dydt]
+# Prey losses
+prey_count = grouped.get('Prey', pd.Series(0, index=grouped.index))
+prey_loss = -prey_count.diff().fillna(0)
+prey_loss[prey_loss < 0] = 0
 
-# Initial populations
-x0 = 40  # Initial prey
-y0 = 9   # Initial predators
-initial_state = [x0, y0]
+# Get dragon active ticks
+dragon_ticks = df[df["kind"] == "AttackerDragon"]["tick"].unique()
+dragon_kills = prey_loss.copy()
+dragon_kills[~dragon_kills.index.isin(dragon_ticks)] = 0
 
-# Solve ODE
-solution = odeint(lotka_volterra, initial_state, t)
-prey, predators = solution.T
+# Plotting
+fig, axs = plt.subplots(3, 1, figsize=(12, 12), sharex=True)
 
-"""
-# Plot results
-plt.figure(figsize=(10, 6))
-plt.plot(t, prey, label="Prey Population 🐇", linewidth=2)
-plt.plot(t, predators, label="Predator Population 🦊", linewidth=2)
-plt.axvline(x=100, color='red', linestyle='--', label='🐉 Dragon Appears (t=100)')
-plt.xlabel('Time')
-plt.ylabel('Population')
-plt.title('Predator-Prey Dynamics with Dragon Intervention')
-plt.legend()
-plt.grid(True)
+# Plot 1: Predator count
+axs[0].plot(grouped.index, grouped.get("Predator", pd.Series(0, index=grouped.index)), label='Predators')
+axs[0].set_title("Predator Count Over Time")
+axs[0].set_ylabel("Predator Count")
+axs[0].grid(True)
+
+# Plot 2: Prey count
+axs[1].plot(grouped.index, grouped.get("Prey", pd.Series(0, index=grouped.index)), label='Prey', color='green')
+axs[1].set_title("Prey Count Over Time")
+axs[1].set_ylabel("Prey Count")
+axs[1].grid(True)
+
+# Plot 3: Prey killed by dragon
+axs[2].plot(dragon_kills.index, dragon_kills, label='Dragon Kills', color='red')
+axs[2].set_title("Prey Killed by Dragon Over Time")
+axs[2].set_xlabel("Time Tick")
+axs[2].set_ylabel("Prey Killed")
+axs[2].grid(True)
+
 plt.tight_layout()
 plt.show()
-"""
