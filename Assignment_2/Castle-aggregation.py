@@ -18,7 +18,7 @@ class SimConfig(Config):
     repel_strength: float = 1.5
     detection_radius: float = 100
     eating_radius: float = 15
-    castle_wander_speed: float = 0.3
+
 
 class Castle(Agent):
     def __init__(self, *args, **kwargs):
@@ -28,10 +28,10 @@ class Castle(Agent):
 
     def update(self):
         self.save_data('kind', 'Castle')
-        screen = pygame.display.get_surface()
-        if screen is not None:
-            pygame.draw.circle(screen, (0, 0, 255), (int(self.pos.x), int(self.pos.y)), 
-                             int(self.config.castle_radius), width=1)
+        #screen = pygame.display.get_surface()
+        #if screen is not None:
+         #   pygame.draw.circle(screen, (0, 0, 255), (int(self.pos.x), int(self.pos.y)), 
+          #                   int(self.config.castle_radius), width=1)
 
     def change_position(self):
         pass
@@ -48,7 +48,7 @@ class Castle(Agent):
         distance = random.uniform(min_distance, max_distance)
         prey.pos = self.pos + Vector2(math.cos(angle), math.sin(angle)) * distance
         # Set initial movement direction
-        prey.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.config.castle_wander_speed
+        prey.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() 
     def leave(self, prey):
         self.preys_in_castle.pop(prey, None)
 
@@ -160,8 +160,8 @@ class Predator(Agent):
 result_df = (
     Simulation(config=SimConfig(duration=60 * 60 * 0.5))
     .spawn_agent(Castle, images=["Assignment_2/images/fort.png"])
-    .batch_spawn_agents(100, Prey, images=["Assignment_2/images/prey_small.png"])
-    .batch_spawn_agents(0, Predator, images=["Assignment_2/images/predator_small.png"])
+    .batch_spawn_agents(60, Prey, images=["Assignment_2/images/prey_small.png"])
+    .batch_spawn_agents(20, Predator, images=["Assignment_2/images/predator_small.png"])
     .run()
     .snapshots
 )
