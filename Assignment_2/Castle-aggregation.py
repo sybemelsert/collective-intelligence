@@ -10,7 +10,7 @@ class SimConfig(Config):
     radius: float = 10
     speed: float = 1.0
     prey_reproduction_prob: float = 0.001
-    predator_death_prob: float = 0.0025
+    predator_death_prob: float = 0.003
     predator_reproduction_chance: float = 1
     castle_capacity: int = 10
     max_castle_stay: int = 60 * 3   # 5 seconds if 60 FPS
@@ -30,8 +30,8 @@ class Castle(Agent):
         self.save_data('kind', 'Castle')
         #screen = pygame.display.get_surface()
         #if screen is not None:
-         #   pygame.draw.circle(screen, (0, 0, 255), (int(self.pos.x), int(self.pos.y)), 
-          #                   int(self.config.castle_radius), width=1)
+         #  pygame.draw.circle(screen, (0, 0, 255), (int(self.pos.x), int(self.pos.y)), 
+          #                 int(self.config.castle_radius), width=1)
 
     def change_position(self):
         pass
@@ -159,9 +159,15 @@ class Predator(Agent):
 # Run simulation
 result_df = (
     Simulation(config=SimConfig(duration=60 * 60 * 0.5))
+<<<<<<< HEAD
     .spawn_agent(Castle, images=["images/barn.png"])
     .batch_spawn_agents(60, Prey, images=["images/prey_small.png"])
     .batch_spawn_agents(20, Predator, images=["images/predator_small.png"])
+=======
+    .spawn_agent(Castle, images=["Assignment_2/images/barn2.png"])
+    .batch_spawn_agents(50, Prey, images=["Assignment_2/images/prey_small.png"])
+    .batch_spawn_agents(10, Predator, images=["Assignment_2/images/predator_small.png"])
+>>>>>>> 9153b4fe35cf9a672ccbe02c2cfd51bccaa8712b
     .run()
     .snapshots
 )
