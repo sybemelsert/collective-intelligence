@@ -165,7 +165,7 @@ class Predator(Agent):
 
 
 # Run multiple simulation runs, reset TOTAL_PREY at start of each
-num_runs = 3
+num_runs = 30
 for i in range(num_runs):
     print(f"\n=== Running simulation {i + 1} of {num_runs} ===")
     TOTAL_PREY = 0  # Reset prey count before each run
