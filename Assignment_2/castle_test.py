@@ -172,9 +172,9 @@ for i in range(num_runs):
 
     result_df = (
         HeadlessSimulation(config=SimConfig(duration=60 * 60 * 1))
-        .spawn_agent(Castle, images=["Assignment_2/images/fort.png"])
-        .batch_spawn_agents(50, Prey, images=["Assignment_2/images/prey_small.png"])
-        .batch_spawn_agents(25, Predator, images=["Assignment_2/images/predator_small.png"])
+        .spawn_agent(Castle, images=["images/fort.png"])
+        .batch_spawn_agents(50, Prey, images=["images/prey_small.png"])
+        .batch_spawn_agents(25, Predator, images=["images/predator_small.png"])
         .run()
         .snapshots
     )

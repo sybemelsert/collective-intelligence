@@ -159,9 +159,15 @@ class Predator(Agent):
 # Run simulation
 result_df = (
     Simulation(config=SimConfig(duration=60 * 60 * 0.5))
+<<<<<<< HEAD
+    .spawn_agent(Castle, images=["images/barn.png"])
+    .batch_spawn_agents(60, Prey, images=["images/prey_small.png"])
+    .batch_spawn_agents(20, Predator, images=["images/predator_small.png"])
+=======
     .spawn_agent(Castle, images=["Assignment_2/images/barn2.png"])
     .batch_spawn_agents(50, Prey, images=["Assignment_2/images/prey_small.png"])
     .batch_spawn_agents(10, Predator, images=["Assignment_2/images/predator_small.png"])
+>>>>>>> 9153b4fe35cf9a672ccbe02c2cfd51bccaa8712b
     .run()
     .snapshots
 )
