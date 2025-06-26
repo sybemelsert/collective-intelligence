@@ -153,10 +153,10 @@ class ProtectorDragon(Agent):
 # Run simulation
 result_df = (
     Simulation(config=SimConfig())
-    .spawn_agent(Castle, images=["images/barn.png"])
-    .batch_spawn_agents(60, Prey, images=["images/prey_small.png"])
-    .batch_spawn_agents(20, Predator, images=["images/predator_small.png"])
-    .batch_spawn_agents(1, ProtectorDragon, images=["images/shield_small.png"])
+    .spawn_agent(Castle, images=["Assignment_2/images/barn.png"])
+    .batch_spawn_agents(60, Prey, images=["Assignment_2/images/prey_small.png"])
+    .batch_spawn_agents(20, Predator, images=["Assignment_2/images/predator_small.png"])
+    .batch_spawn_agents(1, ProtectorDragon, images=["Assignment_2/images/shield_small.png"])
     .run()
     .snapshots
 )
