@@ -3,20 +3,20 @@ from vi import Agent, Config, HeadlessSimulation
 from pygame.math import Vector2
 import random
 import math
-import os
 import datetime
-import polars as pl
+import os
 import matplotlib.pyplot as plt
+import polars as pl
 
-# Global prey count
+# Global prey counter
 TOTAL_PREY = 0
 
 @dataclass
 class SimConfig(Config):
     radius: float = 30
     speed: float = 1.0
-    prey_reproduction_prob: float = 0.0015
-    predator_death_prob: float = 0.005
+    prey_reproduction_prob: float = 0.0005
+    predator_death_prob: float = 0.0025
     predator_reproduction_chance: float = 1
     castle_capacity: int = 10
     max_castle_stay: int = 60 * 3
@@ -24,14 +24,13 @@ class SimConfig(Config):
     repel_strength: float = 1.5
     detection_radius: float = 100
     eating_radius: float = 15
-    duration: int = 60 * 60 * 1
+    duration: int = 60 * 60 * 0.5
 
 class Castle(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.preys_in_castle = {}
         self.config.radius = self.config.castle_radius
-        self.move = Vector2(0, 0)
 
     def update(self):
         self.save_data('kind', 'Castle')
@@ -41,8 +40,10 @@ class Castle(Agent):
 
     def enter(self, prey):
         self.preys_in_castle[prey] = 0
-        angle = random.uniform(0, 2 * math.pi)
-        distance = random.uniform(prey.config.radius, self.config.castle_radius - (prey.config.radius / 0.7))
+        angle = random.uniform(0, 2*math.pi)
+        min_distance = prey.config.radius
+        max_distance = self.config.castle_radius - (prey.config.radius/0.7)
+        distance = random.uniform(min_distance, max_distance)
         prey.pos = self.pos + Vector2(math.cos(angle), math.sin(angle)) * distance
         prey.move = Vector2(0, 0)
 
@@ -92,7 +93,7 @@ class Prey(Agent):
                 repel = (self.pos - agent.pos)
                 if repel.length() > 0:
                     repel = repel.normalize()
-                    self.move += repel * self.config.repel_strength
+                self.move += repel * self.config.repel_strength
 
         self.move = self.move.normalize() * self.config.speed
         self.pos += self.move
@@ -110,11 +111,7 @@ class Prey(Agent):
     def leave_castle(self):
         if self.current_castle:
             self.current_castle.leave(self)
-            repel_vector = (self.pos - self.current_castle.pos)
-            if repel_vector.length() > 0:
-                repel_vector = repel_vector.normalize()
-            else:
-                repel_vector = Vector2(1, 0)
+            repel_vector = (self.pos - self.current_castle.pos).normalize()
             self.pos = self.current_castle.pos + repel_vector * (self.config.castle_radius + self.config.radius)
             self.move = repel_vector * self.config.speed * 1.5
         self.in_castle = False
@@ -133,9 +130,7 @@ class Predator(Agent):
 
         for agent, dist in self.in_proximity_accuracy().filter_kind(Castle):
             if dist < self.config.detection_radius:
-                repel = (self.pos - agent.pos)
-                if repel.length() > 0:
-                    repel = repel.normalize()
+                repel = (self.pos - agent.pos).normalize()
                 self.move += repel * self.config.repel_strength * 2.0
 
         self.move = self.move.normalize() * self.config.speed
@@ -151,57 +146,62 @@ class Predator(Agent):
 
         if not self.has_eaten and random.random() < self.config.predator_death_prob:
             self.kill()
+
         self.has_eaten = False
 
-class ProtectorDragon(Agent):
-    speed = 2.5
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.move = Vector2(random.uniform(-1, 1), random.uniform(-1, 1)).normalize() * self.speed
+class AttackerDragon(Agent):
+    dragon_speed = 1.2
 
     def update(self):
-        self.save_data('kind', 'ProtectorDragon')
+        self.save_data('kind', "AttackerDragon")
 
-        predators = list(self.in_proximity_accuracy().filter_kind(Predator))
+        for agent, dist in self.in_proximity_accuracy().filter_kind(Castle):
+            if dist < self.config.detection_radius:
+                repel = (self.pos - agent.pos)
+                if repel.length() > 0:
+                    repel = repel.normalize()
+                self.move += repel * self.config.repel_strength * 2.0
 
-        if predators:
-            closest_predator, distance = min(predators, key=lambda p: p[1])
-            direction = closest_predator.pos - self.pos
-            if direction.length() > 0:
+        prey = (
+            self.in_proximity_accuracy()
+            .without_distance()
+            .filter_kind(Prey)
+            .filter(lambda p: not p.in_castle)
+            .first()
+        )
+
+        if prey is not None:
+            direction = prey.pos - self.pos
+            if direction.magnitude() != 0:
                 direction = direction.normalize()
-            self.move = direction * self.speed
-            self.pos += self.move
-
-            if distance < self.config.eating_radius:
-                closest_predator.kill()
+            self.pos += direction * self.dragon_speed
+            prey.kill()
         else:
-            self.move = self.move.normalize() * self.speed
-            self.pos += self.move
+            self.move = self.move.normalize()
+            self.pos += self.move * self.dragon_speed
 
-# Run multiple simulations
-output_folder = "Assignment_2/test_results/protector"
+# Run 30 headless simulations and save CSV + plots
+output_folder = "Assignment_2/test_results/attacker"
 os.makedirs(output_folder, exist_ok=True)
 
-num_runs = 30
-for i in range(num_runs):
-    print(f"\n=== Running simulation {i + 1} of {num_runs} ===")
-    TOTAL_PREY = 0  # Reset before each run
+for i in range(1, 3):
+    print(f"\n=== Running simulation {i}/30 ===")
+    TOTAL_PREY = 0
 
     result_df = (
         HeadlessSimulation(config=SimConfig())
         .spawn_agent(Castle, images=["Assignment_2/images/barn.png"])
-        .batch_spawn_agents(50, Prey, images=["Assignment_2/images/prey_small.png"])
-        .batch_spawn_agents(25, Predator, images=["Assignment_2/images/predator_small.png"])
-        .batch_spawn_agents(1, ProtectorDragon, images=["Assignment_2/images/shield_small.png"])
+        .batch_spawn_agents(60, Prey, images=["Assignment_2/images/prey_small.png"])
+        .batch_spawn_agents(20, Predator, images=["Assignment_2/images/predator_small.png"])
+        .batch_spawn_agents(1, AttackerDragon, images=["Assignment_2/images/attacker_small.png"])
         .run()
         .snapshots
     )
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_id = f"run_{i+1}_{timestamp}"
-    csv_path = os.path.join(output_folder, f"protector_{run_id}.csv")
-    plot_path = os.path.join(output_folder, f"protector_{run_id}.png")
+    run_id = f"run_{i}_{timestamp}"
+    csv_path = f"{output_folder}/attacker{run_id}.csv"
+    plot_path = f"Assignment_2/test_results/attacker/attacker{run_id}.png"
 
     result_df.write_csv(csv_path)
     print(f"✅ Saved snapshot data to {csv_path}")
@@ -223,11 +223,11 @@ for i in range(num_runs):
         "Prey": "#1f77b4",
         "Predator": "#d62728",
         "Castle": "#2ca02c",
-        "ProtectorDragon": "#9467bd",
+        "AttackerDragon": "#ff7f0e"
     }
 
     plt.figure(figsize=(10, 6))
-    for kind in df_grouped.columns[1:-1]:
+    for kind in df_grouped.columns[1:-1]:  # exclude 'frame' and 'time_seconds'
         plt.plot(
             df_grouped["time_seconds"],
             df_grouped[kind],
@@ -235,7 +235,7 @@ for i in range(num_runs):
             color=color_map.get(kind, None)
         )
 
-    plt.title("Population Over Time (Protector Simulation)")
+    plt.title("Population Over Time (Attacker)")
     plt.xlabel("Time (seconds)")
     plt.ylabel("Count")
     plt.legend()
